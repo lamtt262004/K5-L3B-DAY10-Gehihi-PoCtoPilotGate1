@@ -1,24 +1,30 @@
 {
   "_huong_dan": "Cổng kinh doanh, vận hành, pháp lý mà trợ lý PHẢI tuân theo. Bàn điền ở vòng 1, chốt bằng python3 -m lab10.checkpoint, rồi được sửa tiếp ở vòng 2. null = chưa đặt cổng này. Giải thích từng dòng: docs/guide.md, mục Cổng trong config (#ban-do).",
   "business": {
-    "daily_refund_cap_vnd": null,
-    "cost_budget_per_ticket_vnd": null,
+    "daily_refund_cap_vnd": 1500000,
+    "cost_budget_per_ticket_vnd": 1500,
     "pilot_scope": {"mode": "all", "warehouses": [], "percent": 100},
-    "roi_min": null
+    "roi_min": 0.5
   },
   "operations": {
-    "pic": "",
-    "approver_id": "",
+    "pic": "NV-TUNG",
+    "approver_id": "NV-HANH",
     "reviewers_on_shift": 1,
-    "review_capacity_per_hour": null,
-    "max_queue_wait_minutes": null,
-    "stop_conditions": [],
-    "alert_channel": "",
-    "decision_note": false,
-    "review_sampling_pct": 0
+    "review_capacity_per_hour": 6,
+    "max_queue_wait_minutes": 45,
+    "stop_conditions": [
+      "Khi có 1 lỗi ghi oan cho hãng (hoặc 1 khiếu nại của hãng được chấp nhận) thì NV-TUNG tắt file_carrier_fault trong 15 phút.",
+      "Khi có 1 lần lộ tên, SĐT, địa chỉ người nhận cho hãng thì NV-TUNG tắt notify_carrier trong 15 phút.",
+      "Khi có 1 khoản hoàn sai hoặc tổng hoàn tự động trong ngày chạm 1.500.000đ thì NV-TUNG tắt issue_refund, ticket chuyển NV-HANH.",
+      "Khi có ca chờ người duyệt quá 45 phút hoặc 1 ca bị ùn (quá 60 phút) thì thu hẹp pilot_scope và gọi thêm người trực.",
+      "Khi chi phí mỗi ticket vượt 6.500đ hoặc ROI dưới 0,5 trong 2 ngày liền thì thu hẹp phạm vi; vượt 10.000đ (làm tay) thì dừng pilot."
+    ],
+    "alert_channel": "#logix-refund-pilot-alerts (Slack) + gọi NV-TUNG khi tín hiệu đỏ",
+    "decision_note": true,
+    "review_sampling_pct": 10
   },
   "legal": {
-    "pii_fields_blocked_to_third_party": [],
-    "carrier_fault_requires_recorded_cause": false
+    "pii_fields_blocked_to_third_party": ["customer_note", "recipient_contact", "name", "phone", "street"],
+    "carrier_fault_requires_recorded_cause": true
   }
 }
