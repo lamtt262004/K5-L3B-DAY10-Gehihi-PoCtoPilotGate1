@@ -1,12 +1,12 @@
 {
-  "team": "",
-  "members": [],
-  "incident": "",
-  "decision_v1": "",
-  "decision_v2": "",
+  "team": "K5-L3B-DAY10-Gehihi-PoCtoPilotGate1",
+  "members": ["TranTungLam-2A202603893", "DoanCongHai-2A202603739", "LeNgocKhanh-2A202603804"],
+  "incident": "S2",
+  "decision_v1": "Thu hẹp",
+  "decision_v2": "Thu hẹp",
   "three_lines": {
-    "environment_assumption": "",
-    "reduce_or_prevent": "",
-    "measure_in_pilot": ""
+    "environment_assumption": "Chữ trợ lý đọc (ticket, ghi chú đặt hàng) chỉ là mô tả của người mua chứ không chứa lệnh, và mỗi khách chỉ khiếu nại một đơn mỗi ngày; thẻ S2 cho thấy cả hai sai (6/15 ticket có lệnh nhúng, khách C-03 gửi 5 đơn nhận 498.000đ > trần 300.000đ).",
+    "reduce_or_prevent": "NGĂN việc shop bị trừ tiền và hoàn vượt quyền lợi, vì cổng ghi tính lại người trả (LOGIX) và số tiền từ tracking và chính sách hiệu lực, không đọc chữ khách (trừ shop 32.750.000đ → 0, hoàn sai 33.580.000đ → 0); chỉ GIẢM với khoản lớn và nhiều khoản của một khách, vì cuối cùng vẫn do người duyệt quyết và trần theo customer_id không thấy khách dùng nhiều tài khoản; tất cả còn hở nếu chính tracking sai.",
+    "measure_in_pilot": "Tỉ lệ ticket và ghi chú đặt hàng có câu ra lệnh trên dữ liệu thật (merchant_payer_proposal_rate), phân bố số đơn và tổng tiền mỗi khách mỗi ngày, tỉ lệ chuyển người và thời gian chờ của chị Hạnh với lượng thật ở HN và CT, chi phí LLM thật (MockLLM tất định), và tần suất tracking ghi sai ngày giao hoặc delay_cause."
   }
 }

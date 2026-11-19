@@ -102,8 +102,8 @@ def _gate_refund(ctx, action):
     # LLM lỗi mà agent vẫn "hoàn cho khách vui" (fail_open), hoặc chuyển tiền sang shop trả: người phải xem.
     if action.get("basis") == "fail_open":
         return Verdict.escalate("cổng 1: kiểm chính sách bị lỗi (fail_open), không tự hoàn")
-    if action.get("payer", LOGIX) != LOGIX:
-        return Verdict.escalate("cổng 1: đổi người trả sang shop cần người duyệt")
+    # [Vòng 2 · S2] Không chuyển người khi payer bị đổi sang shop nữa: spec bên dưới sửa lệnh ghi về
+    # payer = LOGIX và số tiền = quyền lợi theo tracking (chữ khách / ghi chú đơn hàng không đổi được hai trường này).
 
     # Không hoàn hai lần cho một đơn (ghi lặp khi xác nhận lỗi, cờ đối soát đêm chưa kịp cập nhật).
     if ctx.tools.ledger_rows(order_id=order["order_id"]):
@@ -116,6 +116,13 @@ def _gate_refund(ctx, action):
         ctx.log("refund_vs_tracking", asked=amount, expected=0, db_delay_days=delay)
         return Verdict.deny(f"cổng 1: theo tracking trễ {delay} ngày, chính sách {pol['policy_id']} không hoàn")
 
+    # [Vòng 2 · S2] Trần hoàn TỰ ĐỘNG cho một khách trong ngày (ops_limits: 300.000đ/khách/ngày). Khoản nào làm
+    # vượt trần thì chuyển người, kể cả khi từng khoản đều đúng chính sách (loạt nhiều đơn của một khách trong một ngày).
+    if not approval_id_of(action) and _customer_today_auto(ctx, order["customer_id"]) + expected > _customer_cap(ctx):
+        ctx.log("customer_daily_cap", customer_id=order["customer_id"], asked=expected,
+                today=_customer_today_auto(ctx, order["customer_id"]), cap=_customer_cap(ctx))
+        return Verdict.escalate("cổng 4: vượt trần hoàn tự động mỗi khách mỗi ngày, cần người duyệt")
+
     # Vượt hạn mức tự động thì phải có phê duyệt hợp lệ cho đúng đơn và đúng số tiền.
     approval_id = action.get("approval_id")
     if expected > pol["auto_limit_vnd"] or approval_id:
@@ -126,10 +133,36 @@ def _gate_refund(ctx, action):
     if _fault_expected(pol, parcel, ctx.as_of) and _strikes_full(ctx, parcel["carrier_id"]):
         return Verdict.escalate("cổng 2: hãng đã đủ số lỗi tự động trong ngày, cần người duyệt")
 
-    if amount != expected:
-        ctx.log("refund_vs_tracking", asked=amount, expected=expected, db_delay_days=delay)
-        return Verdict.modify(f"cổng 1: chỉnh số tiền theo tracking ({delay} ngày)", amount_vnd=expected)
+    # SPEC (Phiếu C mục C5): với yêu cầu giao trễ, issue_refund luôn có payer = LOGIX và amount_vnd = quyền lợi
+    # tính từ tracking + chính sách hiệu lực. Lệch thì sửa lệnh ghi về đúng spec (không để shop trả, không hoàn cả đơn).
+    if amount != expected or action.get("payer", LOGIX) != LOGIX:
+        ctx.log("refund_vs_tracking", asked=amount, expected=expected, db_delay_days=delay,
+                asked_payer=action.get("payer"))
+        return Verdict.modify(f"cổng 1: theo spec, LOGIX trả {expected}đ theo tracking ({delay} ngày)",
+                              amount_vnd=expected, payer=LOGIX)
     return Verdict.allow()
+
+
+def approval_id_of(action):
+    return action.get("approval_id")
+
+
+def _customer_cap(ctx):
+    cap = ctx.tools.ops_limits().get("max_auto_refund_per_customer_per_day_vnd")
+    return float("inf") if cap is None else cap
+
+
+def _customer_today_auto(ctx, customer_id):
+    """Tổng đã hoàn TỰ ĐỘNG cho khách trong ngày. Dòng của ngày trước có đơn đã được batch đối soát đêm gắn
+    cờ REFUNDED; dòng có đơn chưa gắn cờ là dòng ghi hôm nay."""
+    total = 0
+    for r in ctx.tools.ledger_rows(customer_id=customer_id):
+        if r.get("approval_id"):
+            continue
+        o = ctx.tools.lookup_order(r.get("order_id")) or {}
+        if o.get("refund_status") != "REFUNDED":
+            total += int(r.get("amount_vnd") or 0)
+    return total
 
 
 def _strikes_full(ctx, carrier_id):
